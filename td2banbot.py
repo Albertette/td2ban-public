@@ -25,8 +25,13 @@ image_path = 'https://img.kookapp.cn/assets/2024-09/22/sEDwT4c2lU01c01c.png'
 bot = Bot(token=config['token'])
 #bot_token注册
 
+
+#--------管理员注册----------
+rootid = config['rootid'] #管理员权限账户
+root_id = config['root_id'] #机器人拥有者
+#--------管理员注册----------
+
 #---------数据库声明----------
-rootid = config['root_id']
 DBHOST = config['db_host']
 DBUSER = config['db_user']
 DBPASS = config['db_pass']
@@ -51,8 +56,6 @@ temp_uuid_tf = ''
 temp_uuid_tf_tf = 'f'
 #---------临时变量声明----------
 
-update_playing_game_flag = True
-#在玩状态
 
 
 # 封装数据库查询操作
@@ -261,7 +264,7 @@ async def searchGuid(msg: Message, gameid: str):
         temp_uuid_tf = tf
 
         if tf == tn:
-            if rootid == msg.author.id:
+            if msg.author.id in rootid:
                 uuidup = Card(
                     Module.Header("查询结果如下"),
                     Module.Section(
@@ -296,11 +299,10 @@ async def searchGuid(msg: Message, gameid: str):
                     ),
                     color='#98FB98'
                 )
-
+                temp_uuid_msg_author_id = msg.author.id
                 temp_uuid_profile_pic_url = profile_pic_url
                 temp_uuid_name = profile_ID
                 temp_uuid_uuid = extracted_string
-                temp_uuid_msg_author_id = msg.author.id
 
                 res = await msg.reply(CardMessage(uuidup))
                 await asyncio.sleep(3600)
@@ -322,8 +324,15 @@ async def searchGuid(msg: Message, gameid: str):
                     ),
                     color='#98FB98'
                 )
-                await msg.reply(CardMessage(uuidup1))
                 temp_uuid_msg_author_id = msg.author.id
+                temp_uuid_profile_pic_url = profile_pic_url
+                temp_uuid_name = profile_ID
+                temp_uuid_uuid = extracted_string
+
+                await msg.reply(CardMessage(uuidup1))
+
+
+
 
         if tf == ty:
             for row in results:
@@ -354,7 +363,7 @@ async def searchGuid(msg: Message, gameid: str):
                 await msg.reply(CardMessage(uuidC))
 
                 if type == '个人':
-                    if rootid == msg.author.id:
+                    if msg.author.id == root_id:
                         searchBAN3 = Card(
                             Module.Section(Element.Text("**(font)登记ID(font)[warning]**", type=Types.Text.KMD), ),
                             Module.Section(f"(font){name}(font)[success]"),
@@ -407,6 +416,7 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
         uuid_str = temp_uuid_uuid
         type_value = dj_type
         date_str = date_only
+
         try:
             with pymysql.connect(host=DBHOST, user=DBUSER, password=DBPASS, database=DBNAME) as db:
                 with db.cursor() as cur:
@@ -434,7 +444,8 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
                 color='#B22222'
             )
             await upd_msg(temp_uuid_msg_id, CardMessage(tdban02), channel_type=ChannelPrivacyTypes.GROUP, bot=bot)
-
+            await msg.add_reaction('✅')
+            ch = await bot.client.fetch_public_channel(msg.target_id)
 
 
         except pymysql.Error as e:
@@ -458,6 +469,7 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
                 ),
                 color='#98FB98'
             )
+            await msg.add_reaction('❌')
             await upd_msg(temp_uuid_msg_id, CardMessage(tdban03), channel_type=ChannelPrivacyTypes.GROUP, bot=bot)
             # 处理数据库连接或插入数据时的错误
             print(f"数据库错误：{str(e)}")
@@ -468,6 +480,7 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
 
 
     else:
+        await msg.add_reaction('❌')
         await msg.ctx.channel.send('非法操作', temp_target_id=msg.author.id)
         temp_uuid_tf_tf = 'f'
 
@@ -561,7 +574,7 @@ async def btn_click_event(b: Bot, e: Event):
                     remark = row[4]
                     img_ban = f'https://ubisoft-avatars.akamaized.net/{uuid}/default_256_256.png'
                     if type == '个人':
-                        if rootid == user_id:
+                        if root_id == user_id:
                             searchBAN04 = Card(
                                 Module.Header("查询内容如下"),
                                 Module.Section(
@@ -640,7 +653,7 @@ async def btn_click_event(b: Bot, e: Event):
             )
             await upd_msg(msg_id, CardMessage(tdban02), channel_type=ChannelPrivacyTypes.GROUP, bot=bot)
 
-        if user_id == rootid and value == '黑名单登记':
+        if user_id in rootid and value == '黑名单登记':
             ch = await bot.client.fetch_public_channel(target_id)
 
             tdban = Card(
@@ -674,8 +687,7 @@ async def btn_click_event(b: Bot, e: Event):
             global temp_uuid_tf_tf
             temp_uuid_tf_tf = 't'
     else:
-
-        if value != '已失效':
+        if value !='已失效':
             ch = await bot.client.fetch_public_channel(target_id)
             await bot.client.send(ch, '请勿使用他人查询卡片登记', temp_target_id=user_id)
             trkp = Card(
@@ -707,6 +719,6 @@ async def main():
 
 loop.run_until_complete(main())
 
-#2024年9月25日17:14:05
+#2024年9月26日03:49:51
 
 
