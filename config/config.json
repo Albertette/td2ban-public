@@ -1,0 +1,14 @@
+{
+  "token": "你的kook机器人token",
+  "root_id": "机器人管理员id（你的kook-id）",
+  "db_host": "数据库ip",
+  "db_user": "数据库用户名",
+  "db_pass": "数据库密码",
+  "db_name": "数据库名称",
+  "UBISOFT_EMAIL": "育碧账户",
+  "UBISOFT_PASSW": "育碧密码",
+  "channel_id_public": "公共信息频道",
+  "channel_id_private": "特定权限的信息频道",
+  "using_ws": true
+
+}
