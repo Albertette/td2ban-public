@@ -83,7 +83,7 @@ Windows 自带的记事本或者其他文本编辑器
 **db_pass**数据库密码   
 **db_name**数据库名称  
 
-**数据库字段**
+**数据库字段**  
 ![enter image description here](https://github.com/Albertette/td2ban-private/blob/main/img/mysql-td2bantable.png)
 ***
 ### "UBISOFT_EMAIL",  "UBISOFT_PASSW 如何获取  
