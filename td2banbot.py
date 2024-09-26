@@ -182,7 +182,7 @@ async def search(msg: Message, guid: str):
                 remark = row[4]
                 img_ban = f'https://ubisoft-avatars.akamaized.net/{uuid}/default_256_256.png'
                 if type == '个人':
-                    if rootid == msg.author.id:
+                    if root_id == msg.author.id:
                         searchBAN1 = Card(
                             Module.Header("查询内容如下"),
                             Module.Section(
@@ -250,7 +250,7 @@ async def searchGuid(msg: Message, gameid: str):
             for row in results:
                 type = row[2]
             if type == '个人':
-                if rootid == msg.author.id:
+                if root_id == msg.author.id:
                     tf = '黑名单里有此玩家(font)[pink]'
                 else:
                     tf = '此玩家不在黑名单内(font)[success]'
@@ -731,6 +731,6 @@ async def main():
 
 loop.run_until_complete(main())
 
-#2024年9月26日09:20:33
+#2024年9月26日12:03:38
 
 
