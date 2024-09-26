@@ -59,7 +59,7 @@ Windows 自带的记事本或者其他文本编辑器
 ***
 ### "rootid", "root_id" 如何获取  
 
-*如果没有则无法使用机器人 添加黑名单 && 拥有者独立拉黑(作案类型：个人) 权限*  
+*如果没有则无法使用机器人 添加黑名单 && 拥有者独立拉黑(作案类型：个人) 功能*  
   
 在kook客户端/网页版设置中，开启  `高级设置-开发者模式`  
 
@@ -68,14 +68,14 @@ Windows 自带的记事本或者其他文本编辑器
 在公共频道聊天框，或者服务器用户列表，右键用户头像，复制ID  
 
 ### "channel_id_public", "channel_id_private" 如何获取  
-*如果没有则无法使用机器人 在黑名单新增人员后自动公示的权限*  
+*如果没有则无法使用机器人 在黑名单新增人员后自动公示的功能*  
 `channel_id_public"`为`作案类型: 任意`的权限  
 `channel_id_private`为`作案类型: 个人`的权限  
 开启  `高级设置-开发者模式`  
 右键频道，复制ID  
 
 ### "db_host",  "db_user", "db_pass", "db_name" 如何获取  
-*如果没有则无法使用机器人 数据库相关的所有权限*  
+*如果没有则无法使用机器人 数据库相关的所有功能*  
 作者使用的是mysql数据库  
 
 "db_host": "数据库ip" 若果是本机则填写localhost  
@@ -84,15 +84,19 @@ Windows 自带的记事本或者其他文本编辑器
 "db_name": "数据库名称"  
 
 `数据库字段`
-![enter image description here](https://github.com/Albertette/td2ban-private/blob/main/img/mysql-td2bantable.png)  
+![enter image description here](https://github.com/Albertette/td2ban-private/blob/main/img/mysql-td2bantable.png)
 
-
-
-
-
+### "UBISOFT_EMAIL",  "UBISOFT_PASSW 如何获取  
+*如果没有则无法使用机器人 查询最新ID与查询uuid的功能*   
+  
+UBISOFT_EMAIL 为你的育碧登录邮箱  
+UBISOFT_PASSW 为你的育碧登录密码  
+*这边建议重新注册一个新的育碧账户，使用新账户来进行登录*  
+因为使用此[siegeapi](https://github.com/CNDRD/siegeapi)需要您登录账户，并且作者不保证是否会出现安全隐患所以您建议使用全新的育碧账户
 
 
 
 ## 命令
+
 ## 关于
 本机器人基于[khl.py](https://github.com/TWT233/khl.py)与[siegeapi](https://github.com/CNDRD/siegeapi)开发
