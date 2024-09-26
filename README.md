@@ -1,5 +1,16 @@
 
 # 全境封锁2黑名单kook机器人
+## 目录
+1.  [前期准备](https://github.com/Albertette/td2ban-private/blob/main/README.md#%E5%89%8D%E6%9C%9F%E5%87%86%E5%A4%87)  
+2.  [如何使用](https://github.com/Albertette/td2ban-private/blob/main/README.md#%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8)  
+　2. 1. ["token" 如何获取 ](https://github.com/Albertette/td2ban-private/blob/main/README.md#token-%E5%A6%82%E4%BD%95%E8%8E%B7%E5%8F%96)  
+　2. 2. ["rootid", "root_id" 如何获取  ](https://github.com/Albertette/td2ban-private/blob/main/README.md#rootid-root_id-%E5%A6%82%E4%BD%95%E8%8E%B7%E5%8F%96)  
+　2. 3. ["channel_id_public", "channel_id_private" 如何获取](https://github.com/Albertette/td2ban-private/blob/main/README.md#channel_id_public-channel_id_private-%E5%A6%82%E4%BD%95%E8%8E%B7%E5%8F%96)  
+　2. 4.  ["db_host",  "db_user", "db_pass", "db_name" 如何获取](https://github.com/Albertette/td2ban-private/blob/main/README.md#db_host--db_user-db_pass-db_name-%E5%A6%82%E4%BD%95%E8%8E%B7%E5%8F%96)  
+　2. 5.  ["UBISOFT_EMAIL",  "UBISOFT_PASSW 如何获取  ](https://github.com/Albertette/td2ban-private/blob/main/README.md#ubisoft_email--ubisoft_passw-%E5%A6%82%E4%BD%95%E8%8E%B7%E5%8F%96)  
+3.  [命令](https://github.com/Albertette/td2ban-private/blob/main/README.md#%E5%91%BD%E4%BB%A4)  
+4.  [关于](https://github.com/Albertette/td2ban-private/blob/main/README.md#%E5%85%B3%E4%BA%8E)  
+
 ## 前期准备
 首先请先下载 -[正式版](https://github.com/Albertette/td2ban-private/releases)-任意版本  
 将其放置在一个某个文件夹内例如`*:\td2banbot\td2banbot-v*.*.exe`  
