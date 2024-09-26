@@ -9,9 +9,9 @@
 ## 如何使用
 首先让我们打开刚刚创建的config.json文件   
 <details>
-<summary> *用什么打开?* </summary>
+<summary> <em>用什么打开? </em></summary>
 Windows 自带的记事本或者其他文本编辑器  
-</details>
+</details> 
 
 ## 命令
 ## 关于
