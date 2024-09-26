@@ -7,11 +7,11 @@
 例如`*:\td2banbot\log\` 此文件夹将存放每次提交的日志  
 　　`*:\td2banbot\config\config.json` 此文件为配置文件需要进行编辑
 ## 如何使用
-首先让我们打开刚刚创建的config.json文件
-<details>
+首先让我们打开刚刚创建的config.json文件<details>
 <summary> <em>用什么打开? </em></summary>
 Windows 自带的记事本或者其他文本编辑器  
 </details> 
+
 
 ## 命令
 ## 关于
