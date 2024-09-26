@@ -2,11 +2,11 @@ import json
 import re
 import pymysql
 import asyncio
+import logging
 from typing import Union
-from enum import Enum
 from datetime import datetime
 from khl import *
-from khl import Bot, Message, Event
+from khl import Bot, Message, Event, ChannelPrivacyTypes
 from khl.card import Card, CardMessage, Module, Types, Element, Struct
 from khl import PrivateMessage, PublicMessage
 from siegeapi import Auth, player
@@ -139,9 +139,9 @@ async def check_for_new_data():
                                         ),
                                     )
                                     # 假设你有一个正确的方式来获取频道 ID，这里只是一个示例
-                                    channel_id = config['channel_id_public']
-                                    channel = await bot.client.fetch_public_channel(channel_id)
-                                    await bot.client.send(channel, CardMessage(newBAN1))
+                                    for channel_id in config['channel_id_public']:
+                                        channel = await bot.client.fetch_public_channel(channel_id)
+                                        await bot.client.send(channel, CardMessage(newBAN1))
                             last_checked_data = current_data
         except pymysql.Error as e:
             print(f"数据库查询错误：{str(e)}")
@@ -427,7 +427,7 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
                 Module.Header("查询结果如下"),
                 Module.Section(
                     Element.Text(
-                        f"**(font)游戏ID(font)[warning]**\n(font){temp_uuid_name}(font)[success]\n**(font)当前状态(font)[warning]**\n(font){temp_uuid_tf}\n",
+                        f"**(font)游戏ID(font)[warning]**\n(font){temp_uuid_name}(font)[success]\n**(font)当前状态(font)[warning]**\n(font)已添加至黑名单(font)[purple]\n",
                         type=Types.Text.KMD),
                     Element.Image(src=temp_uuid_profile_pic_url, size=Types.Size.SM, circle=True),
                     mode=Types.SectionMode.RIGHT),
@@ -446,6 +446,18 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
             await upd_msg(temp_uuid_msg_id, CardMessage(tdban02), channel_type=ChannelPrivacyTypes.GROUP, bot=bot)
             await msg.add_reaction('✅')
             ch = await bot.client.fetch_public_channel(msg.target_id)
+            current_time = datetime.now().strftime('%Y%m%d%H%M%S')
+            log_filename = f'.\\logs\\{msg.author.nickname}_{temp_uuid_uuid}_{current_time}.log'
+
+            # 设置日志记录器
+            logging.basicConfig(filename=log_filename, level=logging.INFO,
+                                format=f'{formatted_time} - %(message)s')
+
+            # 记录信息到日志文件
+            logging.info(f'KOOK用户 ID：{msg.author.id}，KOOK用户名：{msg.author.username}')
+            logging.info(f'KOOK服务器内昵称 ID：{msg.author.nickname}，举报游戏ID：{temp_uuid_name}')
+            logging.info(f'举报UUID：{temp_uuid_uuid}')
+            logging.info(f'作案类型：{type_value}，备注：{dj_remark}')
 
 
         except pymysql.Error as e:
@@ -719,6 +731,6 @@ async def main():
 
 loop.run_until_complete(main())
 
-#2024年9月26日03:49:51
+#2024年9月26日09:20:33
 
 
