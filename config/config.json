@@ -1,7 +1,7 @@
 {
   "token": "你的kook机器人token",
-  "rootid": "机器人拥有者kook-id（你的kook-id）",
-  "root_id": ["机器人管理员kook-id（你的kook-id）", "机器人管理员2", "..."],
+  "rootid": ["机器人管理员kook-id（你的kook-id）", "机器人管理员2", "..."],
+  "root_id": "机器人拥有者kook-id（你的kook-id）",
   "db_host": "数据库ip",
   "db_user": "数据库用户名",
   "db_pass": "数据库密码",
