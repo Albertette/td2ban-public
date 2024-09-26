@@ -74,6 +74,19 @@ Windows 自带的记事本或者其他文本编辑器
 开启  `高级设置-开发者模式`  
 右键频道，复制ID  
 
+### "db_host",  "db_user", "db_pass", "db_name" 如何获取  
+*如果没有则无法使用机器人 数据库相关的所有权限*
+作者使用的是mysql数据库
+
+"db_host": "数据库ip" 若果是本机则填写localhost
+"db_user": "数据库用户名", 登录的用户名可以填root
+"db_pass": "数据库密码",
+"db_name": "数据库名称",
+
+`数据库字段`
+![enter image description here](https://github.com/Albertette/td2ban-private/blob/main/img/mysql-td2bantable.png)
+
+
 
 
 
