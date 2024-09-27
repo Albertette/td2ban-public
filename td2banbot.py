@@ -54,6 +54,7 @@ temp_uuid_msg_author_id = ''
 temp_uuid_uuid = ''
 temp_uuid_tf = ''
 temp_uuid_tf_tf = 'f'
+temp_td2ban_msg_id = ''
 #---------临时变量声明----------
 
 
@@ -205,8 +206,10 @@ async def search(msg: Message, guid: str):
                             ),
                             color='#B22222'
                         )
+                        await msg.add_reaction('✅')
                         await msg.ctx.channel.send(CardMessage(searchBAN1), temp_target_id=msg.author.id)
                     else:
+                        await msg.add_reaction('❌')
                         await msg.ctx.channel.send("未找到对应数据-ERR-NO.2", temp_target_id=msg.author.id)
                 else:
                     searchBAN = Card(
@@ -231,8 +234,10 @@ async def search(msg: Message, guid: str):
                         ),
                         color = '#B22222'
                     )
+                    await msg.add_reaction('✅')
                     await msg.ctx.channel.send(CardMessage(searchBAN), temp_target_id=msg.author.id)
         else:
+            await msg.add_reaction('❌')
             await msg.ctx.channel.send("未找到对应数据ERR-NO.1", temp_target_id=msg.author.id)
 
 @bot.command(name='uuid', aliases=['guid'], case_sensitive=False)
@@ -305,6 +310,7 @@ async def searchGuid(msg: Message, gameid: str):
                 temp_uuid_uuid = extracted_string
 
                 res = await msg.reply(CardMessage(uuidup))
+                await msg.add_reaction('✅')
                 await asyncio.sleep(3600)
                 await upd_msg(res['msg_id'], CardMessage(uuidup02), channel_type=ChannelPrivacyTypes.GROUP, bot=bot)
             else:
@@ -328,7 +334,7 @@ async def searchGuid(msg: Message, gameid: str):
                 temp_uuid_profile_pic_url = profile_pic_url
                 temp_uuid_name = profile_ID
                 temp_uuid_uuid = extracted_string
-
+                await msg.add_reaction('✅')
                 await msg.reply(CardMessage(uuidup1))
 
 
@@ -360,6 +366,7 @@ async def searchGuid(msg: Message, gameid: str):
                     ),
                     color='#8A2BE2'
                 )
+                await msg.add_reaction('✅')
                 await msg.reply(CardMessage(uuidC))
 
                 if type == '个人':
@@ -408,14 +415,17 @@ async def searchGuid(msg: Message, gameid: str):
 
 
 @bot.command(name='登记', aliases=['登記'], case_sensitive=False)
-async def dj(msg: Message, dj_type: str, dj_remark=None):
-    global temp_uuid_name, temp_uuid_uuid, temp_uuid_tf_tf, temp_uuid_tf, temp_uuid_profile_pic_url, temp_uuid_msg_id
+async def dj(msg: Message, dj_type: str, *args):
+    global temp_uuid_name, temp_uuid_uuid, temp_uuid_tf_tf, temp_uuid_tf, temp_uuid_profile_pic_url, temp_uuid_msg_id, temp_td2ban_msg_id
     if temp_uuid_tf_tf == 't':
         temp_uuid_tf_tf = 'f'
         name = temp_uuid_name
         uuid_str = temp_uuid_uuid
         type_value = dj_type
         date_str = date_only
+        dj_remark =  "".join(args)
+        if dj_remark == "":
+            dj_remark=None
 
         try:
             with pymysql.connect(host=DBHOST, user=DBUSER, password=DBPASS, database=DBNAME) as db:
@@ -444,20 +454,32 @@ async def dj(msg: Message, dj_type: str, dj_remark=None):
                 color='#B22222'
             )
             await upd_msg(temp_uuid_msg_id, CardMessage(tdban02), channel_type=ChannelPrivacyTypes.GROUP, bot=bot)
+            await del_msg(temp_td2ban_msg_id['msg_id'])
+            temp_td2ban_msg_id = ''
             await msg.add_reaction('✅')
-            ch = await bot.client.fetch_public_channel(msg.target_id)
+
             current_time = datetime.now().strftime('%Y%m%d%H%M%S')
             log_filename = f'.\\logs\\{msg.author.nickname}_{temp_uuid_uuid}_{current_time}.log'
 
             # 设置日志记录器
-            logging.basicConfig(filename=log_filename, level=logging.INFO,
-                                format=f'{formatted_time} - %(message)s')
+            logger = logging.getLogger()
+            file_handler = logging.FileHandler(log_filename)
+            formatter = logging.Formatter(f'{formatted_time} - %(message)s')
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+            logger.setLevel(logging.INFO)
 
             # 记录信息到日志文件
-            logging.info(f'KOOK用户 ID：{msg.author.id}，KOOK用户名：{msg.author.username}')
-            logging.info(f'KOOK服务器内昵称 ID：{msg.author.nickname}，举报游戏ID：{temp_uuid_name}')
-            logging.info(f'举报UUID：{temp_uuid_uuid}')
-            logging.info(f'作案类型：{type_value}，备注：{dj_remark}')
+            logger.info(f'KOOK用户 ID：{msg.author.id}，KOOK用户名：{msg.author.username}')
+            logger.info(f'KOOK服务器内昵称 ID：{msg.author.nickname}，举报游戏ID：{temp_uuid_name}')
+            logger.info(f'举报UUID：{temp_uuid_uuid}')
+            logger.info(f'作案类型：{type_value}，备注：{dj_remark}')
+
+            # 移除日志处理器以结束日志记录
+            logger.removeHandler(file_handler)
+
+            await asyncio.sleep(30)
+            await del_msg(msg.id)
 
 
         except pymysql.Error as e:
@@ -529,10 +551,24 @@ channel_type: Union[ChannelPrivacyTypes, str] = 'public', bot=bot):
     return result
 
 
+async def del_msg(msg_id: str, bot=bot):
+    """
+    异步函数，用于删除指定消息 ID 的频道聊天消息。
+
+    参数：
+    - msg_id (str)：要删除的消息的 ID。
+    - bot：具体的 bot 对象，可能用于执行请求操作。
+
+    返回值：
+    - 无返回参数，但执行成功后会删除指定消息。
+    """
+    data = {'msg_id': msg_id}
+    await bot.client.gate.request('POST', 'message/delete', data=data)
+
 
 @bot.on_event(EventTypes.MESSAGE_BTN_CLICK)
 async def btn_click_event(b: Bot, e: Event):
-    global temp_uuid_tf, temp_uuid_profile_pic_url, temp_uuid_name, temp_uuid_uuid, temp_uuid_msg_id, temp_uuid_msg_author_id
+    global temp_uuid_tf, temp_uuid_profile_pic_url, temp_uuid_name, temp_uuid_uuid, temp_uuid_msg_id, temp_uuid_msg_author_id, temp_td2ban_msg_id
 
     """按钮点击事件"""
     buttondata = e.body
@@ -673,7 +709,7 @@ async def btn_click_event(b: Bot, e: Event):
                                             type=Types.Text.KMD), ),
                 Module.Section("`/登记 {作案类型} {备注}`"),
             )
-            await bot.client.send(ch, CardMessage(tdban))
+            temp_td2ban_msg_id = await bot.client.send(ch, CardMessage(tdban))
 
             tdban01 = Card(
                 Module.Header("查询结果如下"),
@@ -731,6 +767,6 @@ async def main():
 
 loop.run_until_complete(main())
 
-#2024年9月26日12:03:38
+#2024年9月27日09:01:49
 
 
