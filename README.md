@@ -27,12 +27,13 @@ Windows 自带的记事本或者其他文本编辑器
 ```
 {
   "token": "你的kook机器人token",
-  "rootid": ["机器人管理员kook-id（你的kook-id）", "机器人管理员2", "..."],
+  "root": ["机器人管理员kook-id（你的kook-id）", "机器人管理员2", "..."],
   "root_id": "机器人拥有者kook-id（你的kook-id）",
   "db_host": "数据库ip",
   "db_user": "数据库用户名",
   "db_pass": "数据库密码",
   "db_name": "数据库名称",
+  "db_port": "数据库端口",
   "UBISOFT_EMAIL": "育碧账户",
   "UBISOFT_PASSW": "育碧密码",
   "channel_id_public": ["公共信息频道-ID", "公共信息频道2-ID", "..."],
