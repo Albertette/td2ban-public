@@ -4,7 +4,7 @@ import pymysql
 import asyncio
 import logging
 from typing import Union
-from datetime import datetime
+from datetime import datetime, timedelta
 from khl import *
 from khl import Bot, Message, Event, ChannelPrivacyTypes
 from khl.card import Card, CardMessage, Module, Types, Element
@@ -33,10 +33,10 @@ root = config['root']       # --管理员权限账户
 root_id = config['root_id']     # --机器人拥有者
 
 # -判断
-tt = '已添加至黑名单(font)[pink]'
-yn = '正在登记中(font)[pink]'
-ty = '黑名单里有此玩家(font)[pink]'
-tn = '此玩家不在黑名单内(font)[success]'
+tt = '已添加至黑名单(font)[purple]'
+yn = '正在登记中(font)[secondary]'
+ty = '黑名单里有此玩家(font)[danger]'
+tn = '此玩家不在黑名单内(font)[primary]'
 
 # -育碧账户
 UBISOFT_EMAIL = config['UBISOFT_EMAIL']
@@ -46,11 +46,18 @@ UBISOFT_PASSW = config['UBISOFT_PASSW']
 DB_HOST = config['db_host']     # --数据库地址
 DB_USER = config['db_user']     # --数据库用户名
 DB_PASS = config['db_pass']     # --数据库密码
-DB_NAME = config['db_name']     # --数据库名称
+DB_NAME = config['db_name']     # --数据库名称Z
 DB_PORT = config['db_port']     # --数据库端口
 last_checked_data = None        # --上一次检查数据库时的数据状态
 
 # -其他变量
+xb_kg = '新八开挂'
+lb_kg = '老八开挂'
+yx = '爷新'
+yy = '演员'
+gr = '个人'
+ts = '特殊'
+
 temp_uuid_msg_id = ''
 temp_uuid_name = ''
 temp_uuid_msg_author_id = ''
@@ -72,12 +79,22 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
     date_only, formatted_time = get_current_time()
     account_img = f'https://ubisoft-avatars.akamaized.net/{uuid}/default_256_256.png'
     if card_status == '更新':
+        if type == yx:
+            type_status = f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[purple]"
+        elif type == xb_kg or type == lb_kg:
+            type_status = f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[danger]"
+        elif type == yy:
+            type_status = f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[pink]"
+        elif type == gr:
+            type_status = f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[secondary]"
+        else:
+            type_status = f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[info]"
+
+
         new_ban_card = Card(
             Module.Header("欢迎新成员加入黑名单"),
             Module.Section(
-                Element.Text(
-                    f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[success]",
-                    type=Types.Text.KMD),
+                Element.Text(type_status, type=Types.Text.KMD),
                 Element.Image(src=account_img, size=Types.Size.SM, circle=True),
                 mode=Types.SectionMode.RIGHT
             ),
@@ -92,15 +109,26 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
                 Element.Text(f"打印时间:{date_only} By Td2ban (QGE.)", type=Types.Text.KMD),
                 Element.Image(src=td2_image_path),
             ),
+            color='#B22222' if type == xb_kg or type == lb_kg else '#F9C6CF' if type == yy else '#FFFFFF' if type == ts else '#9370DB' if type == yx else '#828282' if type == gr else None
         )
         return new_ban_card
 
     if card_status == '查询':
+        if type == yx:
+            type_status1 = f"(font){type}(font)[purple]"
+        elif type == xb_kg or type == lb_kg:
+            type_status1 = f"(font){type}(font)[danger]"
+        elif type == yy:
+            type_status1 = f"(font){type}(font)[pink]"
+        elif type == gr:
+            type_status1 = f"(font){type}(font)[secondary]"
+        else:
+            type_status1 = f"(font){type}(font)[info]"
         search_card = Card(
             Module.Header("查询内容如下"),
             Module.Section(
                 Element.Text(
-                    f"**(font)登记ID(font)[warning]**\n(font){name}(font)[success]\n**(font)最新ID(font)[warning]**\n(font){latest_name}(font)[success]",
+                    f"**(font)登记ID(font)[warning]**\n(font){name}(font)[success]\n**(font)最新ID(font)[warning]**\n(font){latest_name}(font)[purple]",
                     type=Types.Text.KMD),
                 *([] if tf else [Element.Image(src=account_img, size=Types.Size.SM, circle=True)]),
                 mode=Types.SectionMode.RIGHT
@@ -108,7 +136,7 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
             Module.Section(Element.Text("**(font)育碧标识符(font)[warning]**", type=Types.Text.KMD), ),
             Module.Section(f"(font){uuid}(font)[success]"),
             Module.Section(Element.Text("**(font)作案类型(font)[warning]**", type=Types.Text.KMD), ),
-            Module.Section(f"(font){type}(font)[success]"),
+            Module.Section(type_status1),
             Module.Section(Element.Text("**(font)登记日期(font)[warning]**", type=Types.Text.KMD), ),
             Module.Section(f"(font){date}(font)[success]"),
             Module.Section(Element.Text("**(font)备注(font)[warning]**", type=Types.Text.KMD), ),
@@ -118,7 +146,7 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
                 Element.Text(f"查询时间:{formatted_time} Search by Td2ban (QGE.)", type=Types.Text.KMD),
                 Element.Image(src=td2_image_path),
             ),
-            color='#B22222'
+            color='#B22222' if type == xb_kg or type == lb_kg else '#F9C6CF' if type == yy else '#FFFFFF' if type == ts else '#9370DB' if type == yx else '#828282' if type == gr else None
         )
         return search_card
 
@@ -126,9 +154,7 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
         search_uuid = Card(
             Module.Header("查询结果如下"),
             Module.Section(
-                Element.Text(
-                    f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)当前状态(font)[warning]**\n(font){tf}\n",
-                    type=Types.Text.KMD),
+                Element.Text(f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)当前状态(font)[warning]**\n(font){tf}\n", type=Types.Text.KMD),
                 Element.Image(src=account_img, size=Types.Size.SM, circle=True), mode=Types.SectionMode.RIGHT),
             Module.Section(
                 Element.Text(f"**(font)UUID(font)[warning]**\n(font){uuid}(font)[success]",
@@ -141,18 +167,23 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
                                   theme=Types.Theme.SECONDARY), ] if message_status == "tf" else []),
                 *([Element.Button("登记成功", value='登记成功', click=Types.Click.RETURN_VAL,
                                   theme=Types.Theme.SUCCESS), ] if message_status == "cg" else []),
-                *([Element.Button("权限不足", value='权限不足', theme=Types.Theme.SECONDARY), ] if message_status == "mqx" else []),
-                *([Element.Button("登记成功", value='已点击', theme=Types.Theme.SECONDARY)] if message_status == "ydj" else []),
-                *([Element.Button("正在登记中", value='正在登记中', theme=Types.Theme.SECONDARY)] if message_status == "zdj" else []),
-                *([Element.Button("黑名单登记", value='已失效', theme=Types.Theme.SECONDARY)] if message_status == "ysx" else []),
-                *([Element.Button("登记失败", value='登记失败', theme=Types.Theme.SECONDARY)] if message_status == "sb" else []),
+                *([Element.Button("权限不足", value='权限不足',
+                                  theme=Types.Theme.SECONDARY), ] if message_status == "mqx" else []),
+                *([Element.Button("登记成功", value='已点击',
+                                  theme=Types.Theme.SECONDARY)] if message_status == "ydj" else []),
+                *([Element.Button("正在登记中", value='正在登记中',
+                                  theme=Types.Theme.SECONDARY)] if message_status == "zdj" else []),
+                *([Element.Button("黑名单登记", value='已失效',
+                                  theme=Types.Theme.SECONDARY)] if message_status == "ysx" else []),
+                *([Element.Button("登记失败", value='登记失败',
+                                  theme=Types.Theme.SECONDARY)] if message_status == "sb" else []),
             ),
             Module.Divider(),
             Module.Context(
                 Element.Text(f"查询时间:{formatted_time}", type=Types.Text.KMD),
                 Element.Image(src=td2_image_path),
             ),
-            color='#8A2BE2' if tf == ty  or tf == tt else '#98FB98' if tf == tn else '#FFA500' if tf == yn else None
+            color='#B22222' if tf == ty else '#8A2BE2' if tf == tt else '#98FB98' if tf == tn else '#FFA500' if tf == yn else None
         )
         return search_uuid
 
@@ -323,7 +354,7 @@ async def btn_click_event(b: Bot, e: Event):
                     type = row[2]
                     date = row[3]
                     remark = row[4]
-                    search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, latest_name=latest_name)
+                    search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status='查询', latest_name=latest_name)
                     if type == '个人':
                         if root_id == temp_uuid_msg_author_id:
                             await bot.client.send(ch, CardMessage(search_card), temp_target_id=temp_uuid_msg_author_id)
@@ -398,13 +429,13 @@ async def search_guid(msg: Message, game_id: str):
                 type = row[2]
                 if type == '个人':
                     if root_id == msg.author.id:
-                        tf = '黑名单里有此玩家(font)[pink]'
+                        tf = '黑名单里有此玩家(font)[danger]'
                     else:
-                        tf = '此玩家不在黑名单内(font)[success]'
+                        tf = '此玩家不在黑名单内(font)[primary]'
                 else:
-                    tf = '黑名单里有此玩家(font)[pink]'
+                    tf = '黑名单里有此玩家(font)[danger]'
         else:
-            tf = '此玩家不在黑名单内(font)[success]'
+            tf = '此玩家不在黑名单内(font)[primary]'
 
         if tf == tn:
             if msg.author.id in root:
@@ -425,8 +456,6 @@ async def search_guid(msg: Message, game_id: str):
             search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf)
             await upd_msg(res['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
 
-
-
         if tf == ty:
             for row in results:
                 name = row[0]
@@ -439,6 +468,7 @@ async def search_guid(msg: Message, game_id: str):
                 await msg.reply(CardMessage(search_uuid))
                 search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status='查询', latest_name=latest_name, tf=tf)
                 await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
+
 
 
 # ---------登记黑名单命令-----------
@@ -542,14 +572,15 @@ async def dy(msg: Message):
                             ch = await bot.client.fetch_public_channel(msg.target_id)
                             await bot.client.send(ch, CardMessage(new_ban_card))
                             i=i+1
+                            await asyncio.sleep(2)
 
             print(f"打印完成，共打印：{int(i)}条数据")
         except pymysql.Error as e:
             print(f"数据库错误：{str(e)}")
 
 
-# ---------打印整个列表-----------
-@bot.command(name='root', aliases=['管理员'], case_sensitive=False)
+# ---------添加管理员-----------
+@bot.command(name='root', aliases=['添加管理员'], case_sensitive=False)
 async def dy(msg: Message, roots: str):
     global root
     if isinstance(msg, PrivateMessage):
@@ -564,6 +595,19 @@ async def dy(msg: Message, roots: str):
                 root = config_file['root']
 
 
+# ---------添加公示频道-----------
+@bot.command(name='public', aliases=['添加频道'], case_sensitive=False)
+async def dy(msg: Message, public: str):
+    global config
+    if isinstance(msg, PrivateMessage):
+        if msg.author.id in root:
+            with open('.\\config\\config.json', 'r', encoding='utf-8') as file:
+                config = json.load(file)
+                config['channel_id_public'].append(public)
+            with open('.\\config\\config.json', 'w', encoding='utf-8') as file:
+                json.dump(config, file, indent=4)
+                await msg.add_reaction('✅')
+                await msg.reply('成功添加')
 
 
 # ---------主函数-----------
@@ -576,4 +620,4 @@ async def main():
 loop.run_until_complete(main())
 
 
-#2024年10月3日00:54:09
+#2024年10月5日07:55:36
