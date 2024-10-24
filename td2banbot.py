@@ -1,15 +1,16 @@
-import json
 import re
 import pymysql
 import asyncio
 import logging
+import requests
+import json
 from typing import Union
 from datetime import datetime, timedelta
 from khl import *
 from khl import Bot, Message, Event, ChannelPrivacyTypes
 from khl.card import Card, CardMessage, Module, Types, Element
 from khl import PublicMessage, PrivateMessage
-from siegeapi import Auth
+from siegeapi import Auth, InvalidRequest
 
 # ---------读取config文件-----------
 with open('.\\config\\config.json', 'r', encoding='utf-8') as f:
@@ -57,7 +58,7 @@ yx = '爷新'
 yy = '演员'
 gr = '个人'
 ts = '特殊'
-
+temp_account_img = 'https://img.kookapp.cn/attachments/2024-10/10/zactjBoA44074074.png'
 temp_uuid_msg_id = ''
 temp_uuid_name = ''
 temp_uuid_msg_author_id = ''
@@ -75,9 +76,21 @@ def get_current_time():
 
 
 # ---------卡片消息-----------
-async def card_message(name=None, type=None, uuid=None, date=None, remark=None, card_status=None, latest_name=None, message_status=None, tf=None):
+async def card_message(name=None, type=None, uuid=None, date=None, remark=None, card_status=None, latest_name=None, message_status=None, tf=None, uuid_status=None, ph_tf=None):
     date_only, formatted_time = get_current_time()
-    account_img = f'https://ubisoft-avatars.akamaized.net/{uuid}/default_256_256.png'
+    global temp_account_img
+
+    account_img = temp_account_img
+
+    if uuid_status == 'Y' and (ph_tf != 'n' or ph_tf is None):
+        save_path = await download_image(uuid, name)
+        account_img = await upload(save_path)
+        temp_account_img = account_img
+    elif uuid_status == 'C':
+        account_img = 'https://img.kookapp.cn/attachments/2024-10/10/zactjBoA44074074.png'
+    elif uuid_status == 'D':
+        account_img = f'https://ubisoft-avatars.akamaized.net/{uuid}/default_146_146.png'
+
     if card_status == '更新':
         if type == yx:
             type_status = f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)作案类型(font)[warning]**\n(font){type}(font)[purple]"
@@ -155,7 +168,7 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
             Module.Header("查询结果如下"),
             Module.Section(
                 Element.Text(f"**(font)游戏ID(font)[warning]**\n(font){name}(font)[success]\n**(font)当前状态(font)[warning]**\n(font){tf}\n", type=Types.Text.KMD),
-                Element.Image(src=account_img, size=Types.Size.SM, circle=True), mode=Types.SectionMode.RIGHT),
+                *([Element.Image(src='https://img.kookapp.cn/attachments/2024-10/10/zactjBoA44074074.png', size=Types.Size.SM, circle=True)] if ph_tf == "n" else [Element.Image(src=account_img, size=Types.Size.SM, circle=True)]), mode=Types.SectionMode.RIGHT),
             Module.Section(
                 Element.Text(f"**(font)UUID(font)[warning]**\n(font){uuid}(font)[success]",
                              type=Types.Text.KMD),
@@ -194,6 +207,13 @@ async def card_message(name=None, type=None, uuid=None, date=None, remark=None, 
         )
         return dj_card
 
+    if card_status == '倒计时':
+        djs_card = Card(
+            Module.Section("(font)请稍后。。。 。。。 。。 。(font)[success]"),
+            Module.Countdown(datetime.now() + timedelta(seconds=60), mode=Types.CountdownMode.SECOND),
+        )
+        return djs_card
+
 
 # ------黑名单公示更新--------
 async def check_for_new_data():
@@ -217,14 +237,18 @@ async def check_for_new_data():
                                 type = row[2]
                                 date = row[3]
                                 remark = row[4]
-                                new_ban_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status)
+                                new_ban_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, uuid_status = 'D')
                                 if type == '个人':
                                     try:
                                         channel_id = config['channel_id_private']
                                         private_channel = await bot.client.fetch_public_channel(channel_id)
-                                        await bot.client.send(private_channel, CardMessage(new_ban_card), )
+                                        await bot.client.send(private_channel, CardMessage(new_ban_card))
                                         status = 'ture'
                                     except Exception as e:
+                                        new_ban_card_r = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, uuid_status='Y')
+                                        channel_id = config['channel_id_private']
+                                        private_channel = await bot.client.fetch_public_channel(channel_id)
+                                        await bot.client.send(private_channel, CardMessage(new_ban_card_r))
                                         status = 'false'
                                 else:
                                     try:
@@ -233,7 +257,11 @@ async def check_for_new_data():
                                             await bot.client.send(public_channel, CardMessage(new_ban_card))
                                             status = 'ture'
                                     except Exception as e:
-                                        status = 'false'
+                                        for channel_id in config['channel_id_public']:
+                                            new_ban_card_r = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, uuid_status='Y')
+                                            private_channel = await bot.client.fetch_public_channel(channel_id)
+                                            await bot.client.send(private_channel, CardMessage(new_ban_card_r))
+                                            status = 'false'
                                 date_only, formatted_time = get_current_time()
                                 print(f"有新成员加入，卡片打印状态{status}，时间：{formatted_time}")
                             last_checked_data = current_data
@@ -319,11 +347,116 @@ async def sample_uid(profile_id):
     return player_status.name
 
 
+# ---------从配置文件中读取openId-----------
+def get_openid_from_config():
+    with open('.\\config\\config.json', 'r', encoding='utf-8') as fi:
+        id_config = json.load(fi)
+        open_ids = id_config.get('openId')
+        if isinstance(open_ids, str):
+            return [open_ids]
+        return open_ids
+
+
+# ---------从配置文件中读取template_id-----------
+def get_timetable_template_id_from_config():
+    with open('.\\config\\config.json', 'r', encoding='utf-8') as ft:
+        template = json.load(ft)
+        return template.get('timetable_template_id')
+
+
+# ---------微信推送函数中遍历openId列表进行发送-----------
+def send_blacklist_notification(access_token, name, uuid, type_value, open_ids, author_id, author_username, author_identify_num):
+    template_id = get_timetable_template_id_from_config()
+    for openId in open_ids:
+        body = {
+            "touser": openId,
+            "template_id": template_id.strip(),
+            "url": "https://weixin.qq.com",
+            "data": {
+                "name": {
+                    "value": name
+                },
+                "uuid": {
+                    "value": uuid
+                },
+                "type": {
+                    "value": type_value
+                },
+                "date": {
+                    "value": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                },
+                "author_id": {
+                    "value": author_id
+                },
+                "author_username": {
+                    "value": author_username
+                },
+                "author_identify_num": {
+                    "value": author_identify_num
+                }
+            }
+        }
+        url = 'https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={}'.format(access_token)
+        print(requests.post(url, json.dumps(body)).text)
+
+
+# ---------获取access_token-----------
+def get_access_token():
+    # 从配置文件中读取 appID 和 appSecret
+    with open('.\\config\\config.json', 'r', encoding='utf-8') as fa:
+        access = json.load(fa)
+        app_id = access.get('appID')
+        app_secret = access.get('appSecret')
+    # 检查是否成功读取到了 appID 和 appSecret
+    if app_id is None or app_secret is None:
+        raise ValueError("无法从配置文件中正确读取 appID 或 appSecret。")
+    # 获取access token的url
+    url = f'https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid={app_id.strip()}&secret={app_secret.strip()}'
+    response = requests.get(url).json()
+    print(response)
+    access_token = response.get('access_token')
+    return access_token
+
+
+# ---------下载头像-----------
+async def download_image(uuid, name):
+    print(f'正在尝试下载,{name}的头像')
+    image_url = f'https://ubisoft-avatars.akamaized.net/{uuid}/default_146_146.png'
+    save_path = './image/account_image.png'
+    bad_path = './image/bad_image.png'
+    retries = 7  # 设置重试次数
+    for attempt in range(retries):
+        try:
+            response = requests.get(image_url, timeout=5)  # 设置超时时间为 5 秒
+            if response.status_code == 200:
+                with open(save_path, 'wb') as fm:
+                    fm.write(response.content)
+                print(f"{name}的用户头像已保存至： {save_path}")
+                return save_path
+            else:
+                print(f"{name}的用户头像下载失败， 错误代码: {response.status_code}。正在进行第 {attempt + 1} 次重试。")
+        except requests.exceptions.Timeout:
+            print(f"下载超时。正在进行第 {attempt + 1} 次重试。")
+        except Exception as e:
+            print(f"发生未知错误：{e}。正在进行第 {attempt + 1} 次重试。")
+        await asyncio.sleep(2)  # 每次重试前等待 2 秒
+    print("多次尝试下载失败，放弃下载。")
+    return bad_path
+
+
+# ---------上传头像-----------
+async def upload(save_path):
+    img_url = await bot.client.create_asset(save_path)
+    print("头像已上传：",img_url)
+    return img_url
+
+
 # ---------监听按钮事件-----------
 @bot.on_event(EventTypes.MESSAGE_BTN_CLICK)
 async def btn_click_event(b: Bot, e: Event):
     global temp_td2ban_msg_id, temp_uuid_msg_id
     card_status = 'uuid'
+    uuid_status = 'D'
     button_data = e.body
 
     value = button_data['value']
@@ -338,46 +471,62 @@ async def btn_click_event(b: Bot, e: Event):
     zw_qx = '暂无权限'
     dj_cg = '登记成功'
     ch = await bot.client.fetch_public_channel(target_id)
-    if user_id == temp_uuid_msg_author_id:
-        if value == zw_qx:
-            message_status = 'mqx'
-            await bot.client.send(ch, '权限不足，请联系管理员 QGE.', temp_target_id=user_id)
-            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tn)
+
+    if value == zw_qx:
+        message_status = 'mqx'
+        await bot.client.send(ch, '权限不足，请联系管理员 QGE.', temp_target_id=user_id)
+        try:
+            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tn, uuid_status=uuid_status)
             await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
-        if value == dj_cg:
-            results = query_data_from_td2ban(temp_uuid_uuid)
-            latest_name = await sample_uid(temp_uuid_uuid)
-            if results:
-                for row in results:
-                    name = row[0]
-                    uuid = row[1]
-                    type = row[2]
-                    date = row[3]
-                    remark = row[4]
-                    search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status='查询', latest_name=latest_name)
-                    if type == '个人':
-                        if root_id == temp_uuid_msg_author_id:
-                            await bot.client.send(ch, CardMessage(search_card), temp_target_id=temp_uuid_msg_author_id)
-                    else:
-                        await bot.client.send(ch, CardMessage(search_card), temp_target_id=temp_uuid_msg_author_id)
-            message_status = 'ydj'
-            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status,message_status=message_status, tf=tt)
+        except Exception as e:
+            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tn, uuid_status='Y')
             await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
-        if user_id in root and value == '黑名单登记':
+
+    if value == dj_cg:
+        results = query_data_from_td2ban(temp_uuid_uuid)
+        latest_name = await sample_uid(temp_uuid_uuid)
+        if results:
+            for row in results:
+                name = row[0]
+                uuid = row[1]
+                type = row[2]
+                date = row[3]
+                remark = row[4]
+                search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status='查询', latest_name=latest_name, uuid_status=uuid_status)
+                if type == '个人':
+                    if root_id == user_id:
+                        await bot.client.send(ch, CardMessage(search_card), temp_target_id=user_id)
+                else:
+                    await bot.client.send(ch, CardMessage(search_card), temp_target_id=user_id)
+        message_status = 'ydj'
+        try:
+            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tt, uuid_status=uuid_status)
+            await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+        except Exception as e:
+            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tt, uuid_status='Y')
+            await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+
+
+    if user_id in root and value == '黑名单登记':
+        if user_id == temp_uuid_msg_author_id:
             dj_card = await card_message(card_status='登记')
             temp_td2ban_msg_id = await bot.client.send(ch, CardMessage(dj_card))
             message_status = 'zdj'
-            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status,message_status=message_status, tf=yn)
-            await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+            try:
+                search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=yn, uuid_status=uuid_status)
+                await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+            except Exception as e:
+                search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=yn, uuid_status='Y')
+                await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
             global temp_uuid_tf_tf
             temp_uuid_tf_tf = 't'
-    else:
-        if value != '已失效':
-            ch = await bot.client.fetch_public_channel(target_id)
-            await bot.client.send(ch, '请勿使用他人查询卡片登记', temp_target_id=user_id)
-            message_status = 'ysx'
-            search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status,message_status=message_status, tf=tn)
-            await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+        else:
+            if value != '已失效':
+                ch = await bot.client.fetch_public_channel(target_id)
+                await bot.client.send(ch, '请勿使用他人查询卡片登记', temp_target_id=user_id)
+                message_status = 'ysx'
+                search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tn, uuid_status=uuid_status)
+                await upd_msg(msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
 
 
 # ---------查询是否被ban命令-----------
@@ -398,17 +547,29 @@ async def search(msg: Message, guid: str):
                 type = row[2]
                 date = row[3]
                 remark = row[4]
-                search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, latest_name=latest_name)
+                search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, latest_name=latest_name, uuid_status='D')
                 if type == '个人':
                     if root_id == msg.author.id:
-                        await msg.add_reaction('✅')
-                        await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
+                        try:
+                            await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
+                            await msg.add_reaction('✅')
+                        except Exception as e:
+                            search_card_r = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, latest_name=latest_name, uuid_status='Y')
+                            await msg.ctx.channel.send(CardMessage(search_card_r), temp_target_id=msg.author.id)
+                            await msg.add_reaction('✅')
+
+
                     else:
                         await msg.add_reaction('❌')
                         await msg.ctx.channel.send("未找到对应数据-ERR-NO.2", temp_target_id=msg.author.id)
                 else:
-                    await msg.add_reaction('✅')
-                    await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
+                    try:
+                        await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
+                        await msg.add_reaction('✅')
+                    except Exception as e:
+                        search_card_r = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status=card_status, latest_name=latest_name, uuid_status='Y')
+                        await msg.ctx.channel.send(CardMessage(search_card_r), temp_target_id=msg.author.id)
+                        await msg.add_reaction('✅')
         else:
             await msg.add_reaction('❌')
             await msg.ctx.channel.send("未找到对应数据ERR-NO.1", temp_target_id=msg.author.id)
@@ -416,11 +577,22 @@ async def search(msg: Message, guid: str):
 
 # ---------查询UUID命令-----------
 @bot.command(name='uuid', aliases=['guid'], case_sensitive=False)
-async def search_guid(msg: Message, game_id: str):
+async def search_guid(msg: Message, game_id: str,  *args):
     global temp_uuid_name, temp_uuid_uuid, temp_uuid_msg_author_id
     tf = ''
     if isinstance(msg, PublicMessage):
-        uuid, name = await sample(game_id)
+        if "".join(args) == 'n':
+            ph_tf = "".join(args)
+        else:
+            ph_tf = None
+        uuid_status = 'Y'
+        try:
+            uuid, name = await sample(game_id)
+        except InvalidRequest as e:
+            print(f"用戶{msg.author.username}#{msg.author.identify_num}输入了不存在的用户ID，错误码：{e}")
+            await msg.add_reaction('❌')
+            await msg.ctx.channel.send("您所查找的用戶不存在。(ID并不区分大小写)\n请检查用户ID（注意辨别：o/0/i/L）", temp_target_id=msg.author.id)
+            return
         latest_name = await sample_uid(uuid)
         results = query_data_from_td2ban(uuid)
         card_status = 'uuid'
@@ -437,24 +609,39 @@ async def search_guid(msg: Message, game_id: str):
         else:
             tf = '此玩家不在黑名单内(font)[primary]'
 
+        djs_card = await card_message(card_status='倒计时')
+        djs = await msg.reply(CardMessage(djs_card))
+
         if tf == tn:
             if msg.author.id in root:
                 message_status = 't'
-                search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf)
-                await msg.add_reaction('✅')
-                res = await msg.reply(CardMessage(search_uuid))
+                try:
+                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf, uuid_status='D')
+                    await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                    await msg.add_reaction('✅')
+                except Exception as e:
+                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf, uuid_status=uuid_status, ph_tf=ph_tf)
+                    await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                    await msg.add_reaction('✅')
             else:
                 message_status = 'tf'
-                search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf)
-                await msg.add_reaction('✅')
-                res = await msg.reply(CardMessage(search_uuid))
+                try:
+                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf, uuid_status='D')
+                    await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                    await msg.add_reaction('✅')
+                except Exception as e:
+                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf, uuid_status=uuid_status, ph_tf=ph_tf)
+                    await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                    await msg.add_reaction('✅')
             temp_uuid_msg_author_id = msg.author.id
             temp_uuid_name = name
             temp_uuid_uuid = uuid
-            await asyncio.sleep(3600)
+            add_root_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f'{msg.author.username}#{msg.author.identify_num}于{add_root_time}查询了一名玩家:{name}')
+            await asyncio.sleep(600)
             message_status = 'f'
-            search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf)
-            await upd_msg(res['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+            search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, message_status=message_status, tf=tf, uuid_status='C', ph_tf=ph_tf)
+            await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
 
         if tf == ty:
             for row in results:
@@ -463,12 +650,18 @@ async def search_guid(msg: Message, game_id: str):
                 type = row[2]
                 date = row[3]
                 remark = row[4]
-                search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, tf=tf)
-                await msg.add_reaction('✅')
-                await msg.reply(CardMessage(search_uuid))
+                try:
+                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, tf=tf, uuid_status='D')
+                    await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                    await msg.add_reaction('✅')
+                except Exception as e:
+                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, tf=tf, uuid_status='Y')
+                    await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                    await msg.add_reaction('✅')
                 search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status='查询', latest_name=latest_name, tf=tf)
                 await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
-
+                add_root_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(f'{msg.author.username}#{msg.author.identify_num}于{add_root_time}查询了一名黑名单内的玩家:{name}')
 
 
 # ---------登记黑名单命令-----------
@@ -483,9 +676,18 @@ async def dj(msg: Message, dj_type: str, *args):
             temp_uuid_tf_tf = 'f'
             name = temp_uuid_name
             uuid_str = temp_uuid_uuid
-            type_value = dj_type
             date_str = date_only
-            dj_remark = "".join(args)
+
+            if dj_type.startswith('{') and dj_type.endswith('}'):
+                type_value = re.sub(r'^{|}$', '', dj_type)
+            else:
+                type_value = dj_type
+
+            if "".join(args).startswith('{') and "".join(args).endswith('}'):
+                dj_remark = re.sub(r'^{|}$', '', "".join(args))
+            else:
+                dj_remark = "".join(args)
+
             if dj_remark == "":
                 dj_remark = None
 
@@ -495,10 +697,12 @@ async def dj(msg: Message, dj_type: str, *args):
                         cur.execute("INSERT INTO td2ban (Name, Uuid, Type, Remark, Date) VALUES (%s, %s, %s, %s, %s)",
                                     (name, uuid_str, type_value, dj_remark, date_str))
                         db.commit()
-                search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status,
-                                                 message_status=message_status, tf=tt)
-                await upd_msg(temp_uuid_msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP,
-                              my_bot=bot)
+                try:
+                    search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tt, uuid_status='D')
+                    await upd_msg(temp_uuid_msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
+                except Exception as e:
+                    search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tt, uuid_status='Y')
+                    await upd_msg(temp_uuid_msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
                 await del_msg(temp_td2ban_msg_id['msg_id'])
                 temp_td2ban_msg_id = ''
                 await msg.add_reaction('✅')
@@ -515,7 +719,7 @@ async def dj(msg: Message, dj_type: str, *args):
                 logger.setLevel(logging.INFO)
 
                 # 记录信息到日志文件
-                logger.info(f'KOOK用户 ID：{msg.author.id}，KOOK用户名：{msg.author.username}')
+                logger.info(f'KOOK用户 ID：{msg.author.id}，KOOK用户名：{msg.author.username}#{msg.author.identify_num}')
                 logger.info(f'KOOK服务器内昵称 ID：{msg.author.nickname}，举报游戏ID：{temp_uuid_name}')
                 logger.info(f'举报UUID：{temp_uuid_uuid}')
                 logger.info(f'作案类型：{type_value}，备注：{dj_remark}')
@@ -523,17 +727,26 @@ async def dj(msg: Message, dj_type: str, *args):
                 # 移除日志处理器以结束日志记录
                 logger.removeHandler(file_handler)
 
+                if config["wechat"] == "Y":
+                    access_token = get_access_token()
+                    open_ids = get_openid_from_config()
+                    send_blacklist_notification(access_token, name, uuid_str, type_value, open_ids, msg.author.id, msg.author.username, msg.author.identify_num)
+                else:
+                    pass
+                add_root_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                print(f'{msg.author.username}#{msg.author.identify_num}于{add_root_time}登记了一名玩家:{name}')
+                print('↓----------黑名单----------↓')
+                print(f'玩家ID：{name}\t作案类型：{type_value}\nuuid：{uuid_str}\n备注：{dj_remark}')
+                print('↑----------黑名单----------↑')
                 await asyncio.sleep(30)
                 await del_msg(msg.id)
 
 
             except pymysql.Error as e:
                 message_status = 'sb'
-                search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status,
-                                                 message_status=message_status, tf=tn)
+                search_uuid = await card_message(name=temp_uuid_name, uuid=temp_uuid_uuid, card_status=card_status, message_status=message_status, tf=tn)
                 await msg.add_reaction('❌')
-                await upd_msg(temp_uuid_msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP,
-                              my_bot=bot)
+                await upd_msg(temp_uuid_msg_id, CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
                 # 处理数据库连接或插入数据时的错误
                 print(f"数据库错误：{str(e)}")
 
@@ -544,6 +757,8 @@ async def dj(msg: Message, dj_type: str, *args):
         else:
             await msg.add_reaction('❌')
             await msg.ctx.channel.send('非法操作', temp_target_id=msg.author.id)
+            await asyncio.sleep(30)
+            await del_msg(msg.id)
             temp_uuid_tf_tf = 'f'
 
 
@@ -568,7 +783,7 @@ async def dy(msg: Message):
                         date = row[3]
                         remark = row[4]
                         if type != '个人':
-                            new_ban_card = await card_message(name=name, uuid=uuid, type=type, date=date, remark=remark, card_status=card_status)
+                            new_ban_card = await card_message(name=name, uuid=uuid, type=type, date=date, remark=remark, card_status=card_status, uuid_status = 'Y')
                             ch = await bot.client.fetch_public_channel(msg.target_id)
                             await bot.client.send(ch, CardMessage(new_ban_card))
                             i=i+1
@@ -581,7 +796,7 @@ async def dy(msg: Message):
 
 # ---------添加管理员-----------
 @bot.command(name='root', aliases=['添加管理员'], case_sensitive=False)
-async def dy(msg: Message, roots: str):
+async def root(msg: Message, roots: str):
     global root
     if isinstance(msg, PrivateMessage):
         if msg.author.id == root_id:
@@ -593,11 +808,13 @@ async def dy(msg: Message, roots: str):
                 await msg.add_reaction('✅')
                 await msg.reply('成功添加')
                 root = config_file['root']
+            add_root_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f'{msg.author.username}#{msg.author.identify_num}于{add_root_time}添加了一名管理员-ID:{roots}')
 
 
 # ---------添加公示频道-----------
 @bot.command(name='public', aliases=['添加频道'], case_sensitive=False)
-async def dy(msg: Message, public: str):
+async def public_m(msg: Message, public: str):
     global config
     if isinstance(msg, PrivateMessage):
         if msg.author.id in root:
@@ -608,7 +825,28 @@ async def dy(msg: Message, public: str):
                 json.dump(config, file, indent=4)
                 await msg.add_reaction('✅')
                 await msg.reply('成功添加')
+            add_public_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            print(f'管理员{msg.author.username}#{msg.author.identify_num}于{add_public_time}添加了个黑名单公示频道-ID:{public}')
 
+
+@bot.command(name='reload', case_sensitive=False)
+async def reload(msg: Message):
+    global config, bot, root,root_id, UBISOFT_EMAIL, UBISOFT_PASSW, DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME
+    with open('.\\config\\config.json', 'r', encoding='utf-8') as fr:
+        config = json.load(fr)
+        bot = Bot(token=config['token'])
+        root = config['root']  # --管理员权限账户
+        root_id = config['root_id']
+        UBISOFT_EMAIL = config['UBISOFT_EMAIL']
+        UBISOFT_PASSW = config['UBISOFT_PASSW']
+        DB_HOST = config['db_host']  # --数据库地址
+        DB_USER = config['db_user']  # --数据库用户名
+        DB_PASS = config['db_pass']  # --数据库密码
+        DB_NAME = config['db_name']  # --数据库名称
+        DB_PORT = config['db_port']  # --数据库端口
+    await msg.reply("已重置配置文件")
+    add_reload_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f'管理员{msg.author.username}#{msg.author.identify_num}于{add_reload_time}重载了配置文件')
 
 # ---------主函数-----------
 async def main():
@@ -620,4 +858,4 @@ async def main():
 loop.run_until_complete(main())
 
 
-#2024年10月5日07:55:36
+#2024年10月25日01:41:40
