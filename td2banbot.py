@@ -267,6 +267,9 @@ async def check_for_new_data():
                             last_checked_data = current_data
         except pymysql.Error as e:
             print(f"数据库查询错误：{str(e)}，时间：{formatted_time}")
+        finally:
+            # 确保数据库连接和游标被正确关闭
+            cur.close()
         await asyncio.sleep(10)  # 每隔 10 秒检查一次，可以根据实际情况调整时间间隔
 
 
@@ -334,9 +337,15 @@ async def del_msg(msg_id: str, my_bot: Bot = bot):
 # ---------通过用户最新ID查询用户头像，uuid-----------
 async def sample(game_id):
     auth = Auth(UBISOFT_EMAIL, UBISOFT_PASSW)
-    player_status = await auth.get_player(name=game_id)
-    await auth.close()
-    return player_status.id, player_status.name
+    try:
+        player_status = await auth.get_player(name=game_id)
+        return player_status.id, player_status.name
+    except (InvalidRequest, ValueError) as e:
+        search_error = "ERROR"
+        return search_error, e
+    finally:
+        await auth.close()
+
 
 
 # ---------通过用户uuid查询用户最新ID-----------
@@ -586,10 +595,9 @@ async def search_guid(msg: Message, game_id: str,  *args):
         else:
             ph_tf = None
         uuid_status = 'Y'
-        try:
-            uuid, name = await sample(game_id)
-        except InvalidRequest as e:
-            print(f"用戶{msg.author.username}#{msg.author.identify_num}输入了不存在的用户ID，错误码：{e}")
+        uuid, name = await sample(game_id)
+        if uuid == 'ERROR':
+            print(f"用戶{msg.author.username}#{msg.author.identify_num}输入了不存在的用户ID, 错误码:{name}")
             await msg.add_reaction('❌')
             await msg.ctx.channel.send("您所查找的用戶不存在。(ID并不区分大小写)\n请检查用户ID（注意辨别：o/0/i/L）", temp_target_id=msg.author.id)
             return
@@ -676,18 +684,9 @@ async def dj(msg: Message, dj_type: str, *args):
             temp_uuid_tf_tf = 'f'
             name = temp_uuid_name
             uuid_str = temp_uuid_uuid
+            type_value = dj_type
             date_str = date_only
-
-            if dj_type.startswith('{') and dj_type.endswith('}'):
-                type_value = re.sub(r'^{|}$', '', dj_type)
-            else:
-                type_value = dj_type
-
-            if "".join(args).startswith('{') and "".join(args).endswith('}'):
-                dj_remark = re.sub(r'^{|}$', '', "".join(args))
-            else:
-                dj_remark = "".join(args)
-
+            dj_remark = "".join(args)
             if dj_remark == "":
                 dj_remark = None
 
@@ -757,8 +756,6 @@ async def dj(msg: Message, dj_type: str, *args):
         else:
             await msg.add_reaction('❌')
             await msg.ctx.channel.send('非法操作', temp_target_id=msg.author.id)
-            await asyncio.sleep(30)
-            await del_msg(msg.id)
             temp_uuid_tf_tf = 'f'
 
 
@@ -796,7 +793,7 @@ async def dy(msg: Message):
 
 # ---------添加管理员-----------
 @bot.command(name='root', aliases=['添加管理员'], case_sensitive=False)
-async def root(msg: Message, roots: str):
+async def dy(msg: Message, roots: str):
     global root
     if isinstance(msg, PrivateMessage):
         if msg.author.id == root_id:
@@ -814,7 +811,7 @@ async def root(msg: Message, roots: str):
 
 # ---------添加公示频道-----------
 @bot.command(name='public', aliases=['添加频道'], case_sensitive=False)
-async def public_m(msg: Message, public: str):
+async def dy(msg: Message, public: str):
     global config
     if isinstance(msg, PrivateMessage):
         if msg.author.id in root:
@@ -858,4 +855,4 @@ async def main():
 loop.run_until_complete(main())
 
 
-#2024年10月25日01:41:40
+#2024年10月27日01:27:11
