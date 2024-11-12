@@ -10,6 +10,11 @@
   "UBISOFT_PASSW": "育碧密码",
   "channel_id_public": ["公共信息频道-ID", "公共信息频道2-ID", "..."],
   "channel_id_private": "特定权限的信息频道",
+  "wechat": "微信推送开关，需要打开就填Y",
+  "appID": "微信公众号appID",
+  "appSecret": "微信公众号appSecret",
+  "openId": ["微信公众号推送用户1 openId", "微信公众号推送用户2 openId", "..."],
+  "timetable_template_id": "",
   "using_ws": true
 
 }
