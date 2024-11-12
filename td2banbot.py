@@ -659,17 +659,17 @@ async def search_guid(msg: Message, game_id: str,  *args):
                 date = row[3]
                 remark = row[4]
                 try:
-                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, tf=tf, uuid_status='D')
+                    search_uuid = await card_message(name=game_id, uuid=uuid, card_status=card_status, tf=tf, uuid_status='D')
                     await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
                     await msg.add_reaction('✅')
                 except Exception as e:
-                    search_uuid = await card_message(name=name, uuid=uuid, card_status=card_status, tf=tf, uuid_status='Y')
+                    search_uuid = await card_message(name=game_id, uuid=uuid, card_status=card_status, tf=tf, uuid_status='Y')
                     await upd_msg(djs['msg_id'], CardMessage(search_uuid), channel_type=ChannelPrivacyTypes.GROUP, my_bot=bot)
                     await msg.add_reaction('✅')
                 search_card = await card_message(name=name, type=type, uuid=uuid, date=date, remark=remark, card_status='查询', latest_name=latest_name, tf=tf)
                 await msg.ctx.channel.send(CardMessage(search_card), temp_target_id=msg.author.id)
                 add_root_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                print(f'{msg.author.username}#{msg.author.identify_num}于{add_root_time}查询了一名黑名单内的玩家:{name}')
+                print(f'{msg.author.username}#{msg.author.identify_num}于{add_root_time}查询了一名黑名单内的玩家:{name}，最新ID:{latest_name}')
 
 
 # ---------登记黑名单命令-----------
@@ -855,4 +855,5 @@ async def main():
 loop.run_until_complete(main())
 
 
-#2024年10月27日01:27:11
+#2024年11月7日13:31:50
+
