@@ -14,7 +14,7 @@
   "appID": "微信公众号appID",
   "appSecret": "微信公众号appSecret",
   "openId": ["微信公众号推送用户1 openId", "微信公众号推送用户2 openId", "..."],
-  "timetable_template_id": "",
+  "timetable_template_id": "微信公众号推送模板ID",
   "using_ws": true
 
 }
